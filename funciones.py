@@ -13,12 +13,12 @@ from unidecode import unidecode
 import re
 
 
-palabrasycategorias = pd.read_excel('Palabrasycategorias.xlsx')
-glosario = pd.read_excel('glosario.xlsx')
+palabrasycategorias = pd.read_excel('datos/Palabrasycategorias.xlsx')
+glosario = pd.read_excel('datos/glosario.xlsx')
 glosario_words = {unidecode(word.lower()) for word in glosario['Termino'] if isinstance(word, str)}
 dicmed = palabrasycategorias['Palabra']
 dicmed_words = {unidecode(word.lower()) for word in dicmed if isinstance(word, str)}
-with open('Diccionarioespañol1.txt', 'r', encoding='utf-8') as file:
+with open('datos/Diccionarioespañol1.txt', 'r', encoding='utf-8') as file:
     content = file.read().lower()
     content_words = set(re.findall(r'\b\w+\b', content))
     
@@ -58,18 +58,22 @@ def normalizar(texto):
 #ESTADISTICAS
 
 def periodo_tiempo():
+    # Calcular la fecha mínima y máxima
     fecha_minima = pd.to_datetime(data['Fecha_Ing']).min()
     fecha_maxima = pd.to_datetime(data['Fecha_Ing']).max()
     
+    # Calcular el periodo de tiempo entre las fechas
     periodo_tiempo = fecha_maxima - fecha_minima
-
+    
+    # Formatear el periodo de tiempo en años, meses y días
     def format_periodo_tiempo(periodo):
         dias = periodo.days
         años = dias // 365
         meses = (dias % 365) // 30
         dias_restantes = (dias % 365) % 30
         return f"{años} años, {meses} meses, {dias_restantes} días"
-
+    
+    # Devolver las fechas y el periodo
     return f"Desde {fecha_minima.date()} hasta {fecha_maxima.date()} ({format_periodo_tiempo(periodo_tiempo)})"
 
 
@@ -89,7 +93,7 @@ def distribucion_genero():
     })
 
 def histograma_edad_genero():
-    plt.figure()
+    plt.figure(figsize=(15, 10))
     data[data['Sexo'] == 'F']['Edad'].hist(bins=20, alpha=0.7, label='Mujeres', color='#ffa3a5')
     data[data['Sexo'] == 'M']['Edad'].hist(bins=20, alpha=0.7, label='Hombres', color= '#61a5c2')
     plt.title('Distribución de Edad por Género')
@@ -173,14 +177,13 @@ def grafico_top5_estudios():
     genero_tipoacto['Total'] = genero_tipoacto.sum(axis=1)
     top5_estudios = genero_tipoacto.sort_values(by='Total', ascending=False).head(5).index
     
-    plt.rcParams.update({'font.size': 16})
-    plt.figure()
+    plt.figure(figsize=(15, 10))
     for acto in top5_estudios:
         plt.hist(data[data['Acto'] == acto]['Edad'], bins=20, alpha=0.5, label=acto)
     plt.title('Distribución de Edad por los 5 Tipos de Estudios más Frecuentes')
     plt.xlabel('Edad')
     plt.ylabel('Frecuencia')
-    plt.legend(loc='upper center')
+    plt.legend()
     plt.savefig('grafico_top5_estudios.png')
     return 'grafico_top5_estudios.png'
 
@@ -284,34 +287,44 @@ def normalizar2(texto):
 ultima_busqueda = []
 
 def mostrar_informe_resaltado2(nro_os):
-    global ultima_busqueda 
+    global ultima_busqueda  # Usa la variable global para acceder y modificar
 
     if data is None:
         return "No hay datos cargados."
 
+    # Filtrar el informe por el número de OS
     nro_os = int(nro_os)
     if nro_os in data['Nro_OS'].values:
         informe = data[data['Nro_OS'] == nro_os]['Informe'].values[0]
     else:
         return "No se encontró el informe para este número de OS."
 
+    # Normalizar el informe para poder buscar
     informe_normalizado = normalizar2(informe)
+
+    # Obtener palabras resaltadas (actualizar a la última búsqueda)
     palabras_resaltadas = obtener_palabras_busqueda()
+
+    # Actualizar la variable global para almacenar la última búsqueda
     ultima_busqueda = palabras_resaltadas
 
     for palabra in palabras_resaltadas:
+        # Normalizar la palabra para búsqueda
         palabra_normalizada = normalizar2(palabra)
 
+        # Verificar si la palabra normalizada se encuentra en el informe normalizado
         if palabra_normalizada in informe_normalizado:
+            # Resaltar en el texto original, ignorando mayúsculas y minúsculas
             informe_normalizado = re.sub(
-                rf"({re.escape(palabra)})",  
+                rf"({re.escape(palabra)})",  # Usa la palabra original (con acentos)
                 r'<span style="background-color: pink ;">\1</span>',
                 informe_normalizado,
-                flags=re.IGNORECASE  
+                flags=re.IGNORECASE  # Ignorar mayúsculas y minúsculas
             )
         else:
             print(f"La palabra '{palabra}' no se encuentra en el informe.")
 
+    # Reemplazar saltos de línea por <br> para mostrar en HTML
     informe_html = informe_normalizado.replace("\n", "<br>")
     return informe_html
 
@@ -405,12 +418,14 @@ def mostrar_informe_resaltado3(nro_os):
     if data is None:
         return "No hay datos cargados."
 
+    # Filtrar el informe por el número de OS
     nro_os = int(nro_os)
     if nro_os in data['Nro_OS'].values:
         informe = data[data['Nro_OS'] == nro_os]['Informe'].values[0]
     else:
         return "No se encontró el informe para este número de OS."
 
+    # Normalizar el informe para poder buscar
     informe_normalizado = normalizar2(informe)
     
 
@@ -464,9 +479,11 @@ def mostrar_informe_resaltado3(nro_os):
         "lesion pancreatica"
     ]
     
+    # Resaltar términos encontrados
     palabras_clave = palabrasycategorias['Palabra'][palabrasycategorias['Categoria'] == 'Patologia'].tolist() + palabras_relacionadas_pancreas
     patrones = '|'.join(re.escape(palabra) for palabra in palabras_clave)
 
+    # Usar una expresión regular para resaltar con <span>
     informe_resaltado = re.sub(f"({patrones})", r"<span style='background-color: pink;'>\1</span>", informe_normalizado, flags=re.IGNORECASE)
     informe_html2 = informe_resaltado.replace("\n", "<br>")
     return informe_html2
@@ -478,23 +495,32 @@ def cant_posibles_anomalias_pancreas():
 #CALIDAD
 def busco_faltantes(text):
     if isinstance(text, str):
+        # Normaliza el texto eliminando acentos
         text_normalized = unidecode(text.lower())
         
+        # Reemplaza los caracteres de puntuación y números por espacios, excepto las barras '/'
         text_normalized = re.sub(r'[,:.\d;]+', ' ', text_normalized)
         
+        # Dividir el texto en partes basadas en espacios
         words = []
         for segment in text_normalized.split():
+            # Dividir cada segmento por guiones
             parts = segment.split('-')
             for part in parts:
+                # Elimina caracteres especiales al principio y al final de las palabras, pero mantiene los caracteres especiales dentro
                 cleaned_part = re.sub(r'^[^\w]+|[^\w]+$', '', part)
                 
+                # Filtra palabras específicas y palabras que contienen números
                 if cleaned_part and cleaned_part != 'i/v' and not cleaned_part.isdigit() and not re.search(r'\d', cleaned_part):
+                    # Ignora palabras que contienen '/'
                     if '/' in cleaned_part:
                         continue
                     words.append(cleaned_part)
         
+        # Normaliza las palabras eliminando caracteres acentuados
         words = {unidecode(word) for word in words}
         
+        # Encuentra palabras faltantes
         faltantes = [word for word in words if word not in content_words and word not in dicmed_words and word not in glosario_words]
         return faltantes
     
@@ -545,6 +571,7 @@ def cantidad_completos():
     return 'Cantidad de columnas completas.png'
 
 def deteccion_errores():
+    # Elimino duplicados en función de 'Nro_OS'
     data_unique = data.drop_duplicates(subset=['Nro_OS'])
     data_informe = data_unique.apply(normalizar, axis=1)
     data_informe['Palabras mal escritas'] = data_informe['Informe'].apply(busco_faltantes)
@@ -600,8 +627,10 @@ def resaltar_errores(text, faltantes):
 def calcular_errores_por_medico():
     data_informe = deteccion_errores()
     
+    # Clasificar errores
     data_informe['Errores codificación'], data_informe['Errores'] = zip(*data_informe['Palabras mal escritas'].apply(clasificar_errores))
     
+    # Calcular errores por médico
     errores_por_medico = data_informe.groupby('Nro_Medico').apply(lambda df: {
        'Cant. de informes': df.shape[0],
        'Promedio errores por informe': round(df['Cant. palabras mal escritas'].mean(), 1),
@@ -686,8 +715,8 @@ def crear_histograma_errores():
     errores_con_vocal = errores_con_vocal.fillna(0)  # Asegúrate de que no haya valores NaN
     
     plt.subplot(1, 2, 2)
-    width = 0.6  
-    x = range(len(errores_con_vocal))  
+    width = 0.6  # Ajusta el ancho de las barras para el segundo gráfico
+    x = range(len(errores_con_vocal))  # Genera posiciones para las barras
     bars = plt.bar(x, errores_con_vocal['Errores codificación'], color='#f9df74', width=width, align='center')
     plt.xlabel('Nro_Medico')
     plt.ylabel('Cantidad')
